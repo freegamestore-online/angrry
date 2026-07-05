@@ -12,8 +12,8 @@ function nextId(): number { return _nextId++; }
 
 const SLINGSHOT_X_FRAC = 0.18;
 const SLINGSHOT_Y_FRAC = 0.68;
-const LAUNCH_POWER = 4.5;
-const MAX_DRAG = 80;
+const LAUNCH_POWER = 6;
+const MAX_DRAG = 140;
 const SETTLE_TIME = 2.5;
 
 function makeBird(type: BirdType, x: number, y: number): Bird {
@@ -141,6 +141,9 @@ export default function App() {
 
   const slingshotX = canvasSize.w * SLINGSHOT_X_FRAC;
   const slingshotY = canvasSize.h * SLINGSHOT_Y_FRAC;
+  // Max slingshot pull scales with the canvas so you can aim across the whole
+  // screen (a fixed 80px cap barely reached past the slingshot on wide canvases).
+  const maxDrag = Math.max(MAX_DRAG, canvasSize.w * 0.3);
 
   // --- Input helpers ---
   const getCanvasPos = useCallback((clientX: number, clientY: number): Vec2 => {
@@ -172,13 +175,13 @@ export default function App() {
     const dx = pos.x - slingshotX;
     const dy = pos.y - slingshotY;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist > MAX_DRAG) {
-      const scale = MAX_DRAG / dist;
+    if (dist > maxDrag) {
+      const scale = maxDrag / dist;
       dragPosRef.current = { x: slingshotX + dx * scale, y: slingshotY + dy * scale };
     } else {
       dragPosRef.current = { x: pos.x, y: pos.y };
     }
-  }, [slingshotX, slingshotY]);
+  }, [slingshotX, slingshotY, maxDrag]);
 
   const endDrag = useCallback(() => {
     if (!isDraggingRef.current) return;

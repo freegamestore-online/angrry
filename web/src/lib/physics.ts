@@ -1,9 +1,9 @@
 import type { Bird, Pig, Block, Particle, Vec2 } from "../types";
 
-const GRAVITY = 800;
+const GRAVITY = 700;
 const GROUND_Y_FRAC = 0.82; // fraction of canvas height
-const DAMPING = 0.45;
-const FRICTION = 0.75;
+const DAMPING = 0.6;
+const FRICTION = 0.88;
 
 export function getGroundY(h: number): number {
   return h * GROUND_Y_FRAC;
