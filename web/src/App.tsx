@@ -63,7 +63,7 @@ function buildLevel(levelIdx: number, canvasW: number, canvasH: number, score: n
   const sy = canvasH * SLINGSHOT_Y_FRAC;
 
   const birds = lvl.birds.map((type, i) =>
-    makeBird(type, sx - i * 28, sy)
+    makeBird(type, sx - i * 30, sy)
   );
 
   const pigs = lvl.pigs.map(p =>
@@ -86,317 +86,385 @@ function buildLevel(levelIdx: number, canvasW: number, canvasH: number, score: n
 
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef<GameState | null>(null);
-  const dragRef = useRef<Vec2 | null>(null);
-  const isDraggingRef = useRef(false);
   const [score, setScore] = useState(0);
-  const [highScore, updateHighScore] = useHighScore("angrry_hs");
+  const [highScore, updateHighScore] = useHighScore("angrry_highscore");
   const [phase, setPhase] = useState<GamePhase>("aiming");
   const [level, setLevel] = useState(0);
+  const sizeRef = useRef({ w: 800, h: 500 });
 
-  const initLevel = useCallback((lvlIdx: number, currentScore: number) => {
+  // Drag state — pointer only, no re-renders
+  const dragRef = useRef<{ active: boolean; pos: Vec2 | null }>({ active: false, pos: null });
+
+  // Resize canvas to fill container
+  const resize = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    const gs = buildLevel(lvlIdx, canvas.width, canvas.height, currentScore);
-    stateRef.current = gs;
-    setPhase(gs.phase);
-    setLevel(lvlIdx);
-    setScore(currentScore);
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+    const w = container.clientWidth;
+    const h = container.clientHeight;
+    canvas.width = w;
+    canvas.height = h;
+    sizeRef.current = { w, h };
+    // Rebuild level at new size if state exists
+    if (stateRef.current) {
+      const s = stateRef.current;
+      stateRef.current = buildLevel(s.level, w, h, s.score);
+    }
   }, []);
 
-  // Init on mount
+  // Init
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const resize = () => {
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
-      const gs = stateRef.current;
-      initLevel(gs ? gs.level : 0, gs ? gs.score : 0);
-    };
     resize();
-    window.addEventListener("resize", resize);
-    return () => window.removeEventListener("resize", resize);
-  }, [initLevel]);
+    const obs = new ResizeObserver(resize);
+    if (containerRef.current) obs.observe(containerRef.current);
+    return () => obs.disconnect();
+  }, [resize]);
 
-  // Input helpers
-  const getCanvasPos = useCallback((clientX: number, clientY: number): Vec2 => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-    const rect = canvas.getBoundingClientRect();
-    return {
-      x: (clientX - rect.left) * (canvas.width / rect.width),
-      y: (clientY - rect.top) * (canvas.height / rect.height),
-    };
+  // Init game state once canvas is sized
+  useEffect(() => {
+    const { w, h } = sizeRef.current;
+    if (w > 0 && h > 0 && !stateRef.current) {
+      stateRef.current = buildLevel(0, w, h, 0);
+    }
   }, []);
 
-  const slingshotPos = useCallback((): Vec2 => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
+  // Slingshot position helpers
+  function slingshotPos() {
+    const { w, h } = sizeRef.current;
     return {
-      x: canvas.width * SLINGSHOT_X_FRAC,
-      y: canvas.height * SLINGSHOT_Y_FRAC,
+      sx: w * SLINGSHOT_X_FRAC,
+      sy: h * SLINGSHOT_Y_FRAC,
     };
+  }
+
+  // Clamp drag to max distance from slingshot
+  function clampDrag(px: number, py: number): Vec2 {
+    const { sx, sy } = slingshotPos();
+    const dx = px - sx;
+    const dy = py - sy;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist <= MAX_DRAG) return { x: px, y: py };
+    return {
+      x: sx + (dx / dist) * MAX_DRAG,
+      y: sy + (dy / dist) * MAX_DRAG,
+    };
+  }
+
+  // Check if pointer is near current bird on slingshot
+  function nearBird(px: number, py: number): boolean {
+    const s = stateRef.current;
+    if (!s) return false;
+    const bird = s.birds[s.currentBirdIdx];
+    if (!bird || bird.launched) return false;
+    const dx = px - bird.x;
+    const dy = py - bird.y;
+    return Math.sqrt(dx * dx + dy * dy) < bird.radius + 28;
+  }
+
+  // Pointer down
+  const onPointerDown = useCallback((px: number, py: number) => {
+    const s = stateRef.current;
+    if (!s || s.phase !== "aiming") return;
+    if (nearBird(px, py)) {
+      dragRef.current.active = true;
+      dragRef.current.pos = clampDrag(px, py);
+    }
   }, []);
 
-  const handlePointerDown = useCallback((clientX: number, clientY: number) => {
-    const gs = stateRef.current;
-    if (!gs || gs.phase !== "aiming") return;
-    const pos = getCanvasPos(clientX, clientY);
-    const sp = slingshotPos();
-    const dx = pos.x - sp.x;
-    const dy = pos.y - sp.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < 80) {
-      isDraggingRef.current = true;
-      dragRef.current = pos;
-    }
-  }, [getCanvasPos, slingshotPos]);
+  // Pointer move
+  const onPointerMove = useCallback((px: number, py: number) => {
+    if (!dragRef.current.active) return;
+    dragRef.current.pos = clampDrag(px, py);
+  }, []);
 
-  const handlePointerMove = useCallback((clientX: number, clientY: number) => {
-    if (!isDraggingRef.current) return;
-    const gs = stateRef.current;
-    if (!gs || gs.phase !== "aiming") return;
-    const pos = getCanvasPos(clientX, clientY);
-    const sp = slingshotPos();
-    const dx = pos.x - sp.x;
-    const dy = pos.y - sp.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist > MAX_DRAG) {
-      const scale = MAX_DRAG / dist;
-      dragRef.current = { x: sp.x + dx * scale, y: sp.y + dy * scale };
-    } else {
-      dragRef.current = pos;
-    }
-  }, [getCanvasPos, slingshotPos]);
+  // Pointer up — launch!
+  const onPointerUp = useCallback(() => {
+    const s = stateRef.current;
+    if (!s || !dragRef.current.active) return;
+    dragRef.current.active = false;
 
-  const handlePointerUp = useCallback(() => {
-    if (!isDraggingRef.current) return;
-    isDraggingRef.current = false;
-    const gs = stateRef.current;
-    if (!gs || gs.phase !== "aiming") { dragRef.current = null; return; }
-    const drag = dragRef.current;
+    const drag = dragRef.current.pos;
     if (!drag) return;
-    const sp = slingshotPos();
-    const dx = drag.x - sp.x;
-    const dy = drag.y - sp.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < 10) { dragRef.current = null; return; }
+    dragRef.current.pos = null;
 
-    const bird = gs.birds[gs.currentBirdIdx];
-    if (!bird) { dragRef.current = null; return; }
+    const bird = s.birds[s.currentBirdIdx];
+    if (!bird || bird.launched) return;
 
-    const vel = calcLaunchVelocity(drag.x, drag.y, sp.x, sp.y, LAUNCH_POWER);
+    const { sx, sy } = slingshotPos();
+    const vel = calcLaunchVelocity(drag.x, drag.y, sx, sy, LAUNCH_POWER);
     bird.vx = vel.x;
     bird.vy = vel.y;
     bird.launched = true;
-    gs.phase = "flying";
-    setPhase("flying");
-    dragRef.current = null;
-  }, [slingshotPos]);
+    s.phase = "flying";
+  }, []);
 
-  // Mouse events
-  const onMouseDown = useCallback((e: React.MouseEvent) => handlePointerDown(e.clientX, e.clientY), [handlePointerDown]);
-  const onMouseMove = useCallback((e: React.MouseEvent) => handlePointerMove(e.clientX, e.clientY), [handlePointerMove]);
-  const onMouseUp = useCallback(() => handlePointerUp(), [handlePointerUp]);
+  // Touch / mouse event wiring
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-  // Touch events
-  const onTouchStart = useCallback((e: React.TouchEvent) => {
-    const t = e.touches[0];
-    if (t) handlePointerDown(t.clientX, t.clientY);
-  }, [handlePointerDown]);
-  const onTouchMove = useCallback((e: React.TouchEvent) => {
-    e.preventDefault();
-    const t = e.touches[0];
-    if (t) handlePointerMove(t.clientX, t.clientY);
-  }, [handlePointerMove]);
-  const onTouchEnd = useCallback(() => handlePointerUp(), [handlePointerUp]);
+    const getXY = (e: MouseEvent | Touch) => {
+      const rect = canvas.getBoundingClientRect();
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    };
+
+    const md = (e: MouseEvent) => { const p = getXY(e); onPointerDown(p.x, p.y); };
+    const mm = (e: MouseEvent) => { const p = getXY(e); onPointerMove(p.x, p.y); };
+    const mu = () => onPointerUp();
+
+    const td = (e: TouchEvent) => {
+      e.preventDefault();
+      const t = e.touches[0]; if (!t) return;
+      const p = getXY(t); onPointerDown(p.x, p.y);
+    };
+    const tm = (e: TouchEvent) => {
+      e.preventDefault();
+      const t = e.touches[0]; if (!t) return;
+      const p = getXY(t); onPointerMove(p.x, p.y);
+    };
+    const tu = (e: TouchEvent) => { e.preventDefault(); onPointerUp(); };
+
+    canvas.addEventListener("mousedown", md);
+    canvas.addEventListener("mousemove", mm);
+    canvas.addEventListener("mouseup", mu);
+    canvas.addEventListener("touchstart", td, { passive: false });
+    canvas.addEventListener("touchmove", tm, { passive: false });
+    canvas.addEventListener("touchend", tu, { passive: false });
+
+    return () => {
+      canvas.removeEventListener("mousedown", md);
+      canvas.removeEventListener("mousemove", mm);
+      canvas.removeEventListener("mouseup", mu);
+      canvas.removeEventListener("touchstart", td);
+      canvas.removeEventListener("touchmove", tm);
+      canvas.removeEventListener("touchend", tu);
+    };
+  }, [onPointerDown, onPointerMove, onPointerUp]);
 
   // Special ability on tap during flight
-  const handleActivate = useCallback((clientX: number, clientY: number) => {
-    const gs = stateRef.current;
-    if (!gs || gs.phase !== "flying") return;
-    const bird = gs.birds[gs.currentBirdIdx];
-    if (!bird || !bird.launched || bird.activated) return;
-    bird.activated = true;
-    if (bird.type === "yellow") {
-      bird.vx *= 2.2;
-      bird.vy *= 0.5;
-    } else if (bird.type === "black") {
-      spawnParticles(bird.x, bird.y, "#ff6600", 20, gs.particles, nextId);
-      spawnParticles(bird.x, bird.y, "#ffcc00", 15, gs.particles, nextId);
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const pos = getCanvasPos(clientX, clientY);
-        const blastR = 120;
-        for (const p of gs.pigs) {
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const activate = () => {
+      const s = stateRef.current;
+      if (!s || s.phase !== "flying") return;
+      const bird = s.birds[s.currentBirdIdx];
+      if (!bird || !bird.launched || bird.dead || bird.activated) return;
+      bird.activated = true;
+      if (bird.type === "yellow") {
+        bird.vx *= 1.8;
+        bird.vy *= 0.5;
+      } else if (bird.type === "black") {
+        // Explode
+        spawnParticles(bird.x, bird.y, "#ff6600", 20, s.particles, nextId);
+        spawnParticles(bird.x, bird.y, "#ffcc00", 15, s.particles, nextId);
+        const blastR = 90;
+        for (const p of s.pigs) {
           if (p.dead) continue;
-          const dx = p.x - pos.x; const dy = p.y - pos.y;
-          if (Math.sqrt(dx*dx+dy*dy) < blastR + p.radius) {
-            p.hp -= 4;
-            if (p.hp <= 0) { p.dead = true; gs.score += 500; }
+          const dx = p.x - bird.x; const dy = p.y - bird.y;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d < blastR) {
+            const force = (1 - d / blastR) * 800;
+            p.vx += (dx / d) * force;
+            p.vy += (dy / d) * force - 200;
+            p.hp -= 3;
+            if (p.hp <= 0) p.dead = true;
           }
         }
-        for (const bl of gs.blocks) {
+        for (const bl of s.blocks) {
           if (bl.dead) continue;
-          const dx = bl.x - pos.x; const dy = bl.y - pos.y;
-          if (Math.sqrt(dx*dx+dy*dy) < blastR + Math.max(bl.w,bl.h)/2) {
+          const dx = bl.x - bird.x; const dy = bl.y - bird.y;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d < blastR) {
+            const force = (1 - d / blastR) * 600;
+            bl.vx += (dx / d) * force;
+            bl.vy += (dy / d) * force - 150;
+            bl.angularVel += (Math.random() - 0.5) * 10;
             bl.hp -= 3;
             if (bl.hp <= 0) bl.dead = true;
           }
         }
+        bird.dead = true;
+      } else if (bird.type === "blue") {
+        // Split into 3
+        const offsets = [-25, 0, 25];
+        for (const off of offsets) {
+          const nb = makeBird("blue", bird.x, bird.y);
+          nb.launched = true;
+          nb.vx = bird.vx * 0.9;
+          nb.vy = bird.vy + off;
+          nb.activated = true;
+          s.birds.splice(s.currentBirdIdx + 1, 0, nb);
+        }
+        bird.dead = true;
       }
-      bird.dead = true;
-    } else if (bird.type === "blue") {
-      // Split into 3
-      for (let i = -1; i <= 1; i++) {
-        if (i === 0) continue;
-        const clone = makeBird("blue", bird.x, bird.y);
-        clone.vx = bird.vx + i * 80;
-        clone.vy = bird.vy + i * -120;
-        clone.launched = true;
-        gs.birds.splice(gs.currentBirdIdx + 1, 0, clone);
-      }
-    }
-  }, [getCanvasPos]);
+    };
 
-  const onCanvasClick = useCallback((e: React.MouseEvent) => {
-    handleActivate(e.clientX, e.clientY);
-  }, [handleActivate]);
+    const mc = () => activate();
+    const tc = (e: TouchEvent) => { e.preventDefault(); activate(); };
+    canvas.addEventListener("click", mc);
+    canvas.addEventListener("touchend", tc, { passive: false });
+    return () => {
+      canvas.removeEventListener("click", mc);
+      canvas.removeEventListener("touchend", tc);
+    };
+  }, []);
 
-  const onCanvasTap = useCallback((e: React.TouchEvent) => {
-    const t = e.changedTouches[0];
-    if (t) handleActivate(t.clientX, t.clientY);
-  }, [handleActivate]);
-
-  // Game loop
-  useGameLoop((dt) => {
-    const gs = stateRef.current;
+  // MAIN GAME LOOP — never paused
+  useGameLoop((dt: number) => {
     const canvas = canvasRef.current;
-    if (!gs || !canvas) return;
+    const s = stateRef.current;
+    if (!canvas || !s) return;
+
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    if (gs.phase === "flying" || gs.phase === "settling" || gs.phase === "nextbird") {
-      stepPhysics(gs.birds, gs.pigs, gs.blocks, gs.particles, dt, canvas.width, canvas.height);
+    const { w, h } = sizeRef.current;
 
-      // Check if active bird is dead/out → move to next bird or settle
-      if (gs.phase === "flying") {
-        const bird = gs.birds[gs.currentBirdIdx];
-        if (!bird || bird.dead || !bird.launched) {
-          gs.phase = "settling";
-          gs.settleTimer = 0;
-          setPhase("settling");
+    // --- UPDATE ---
+    if (s.phase === "flying" || s.phase === "settling") {
+      stepPhysics(s.birds, s.pigs, s.blocks, s.particles, dt, w, h, nextId);
+
+      // Check if flying bird has died → next bird or settle
+      if (s.phase === "flying") {
+        const activeBird = s.birds[s.currentBirdIdx];
+        if (!activeBird || !activeBird.launched || activeBird.dead) {
+          // Look for any unlaunched bird
+          const nextIdx = s.birds.findIndex((b, i) => i > s.currentBirdIdx && !b.launched);
+          if (nextIdx !== -1) {
+            s.currentBirdIdx = nextIdx;
+            // Reposition next bird at slingshot
+            const nb = s.birds[nextIdx]!;
+            nb.x = w * SLINGSHOT_X_FRAC;
+            nb.y = h * SLINGSHOT_Y_FRAC;
+          }
+          s.phase = "settling";
+          s.settleTimer = 0;
         }
       }
 
-      // Settling: wait for everything to stop
-      if (gs.phase === "settling") {
-        gs.settleTimer += dt;
-        const allPigsDead = gs.pigs.every(p => p.dead);
+      if (s.phase === "settling") {
+        s.settleTimer += dt;
+        const allPigsDead = s.pigs.every(p => p.dead);
 
-        if (allPigsDead || gs.settleTimer >= SETTLE_TIME || isSettled(gs.birds, gs.pigs, gs.blocks)) {
+        if (allPigsDead || s.settleTimer > SETTLE_TIME || isSettled(s.birds, s.pigs, s.blocks)) {
           if (allPigsDead) {
-            // Level cleared — load next level immediately, no popup
-            const nextLevel = gs.level + 1;
-            const currentScore = gs.score;
-            updateHighScore(currentScore);
-            if (nextLevel >= LEVELS.length) {
-              gs.phase = "gameover";
-              setPhase("gameover");
-              setScore(currentScore);
-            } else {
-              // Instantly build next level, keep score
-              const next = buildLevel(nextLevel, canvas.width, canvas.height, currentScore);
+            // Bonus for remaining birds
+            const remaining = s.birds.filter(b => !b.launched).length;
+            s.score += remaining * 1000 + 3000;
+            updateHighScore(s.score);
+            setScore(s.score);
+
+            // Advance to next level immediately — no pop-up
+            const nextLevel = s.level + 1;
+            if (nextLevel < LEVELS.length) {
+              const next = buildLevel(nextLevel, w, h, s.score);
               stateRef.current = next;
-              setPhase("aiming");
               setLevel(nextLevel);
-              setScore(currentScore);
-            }
-          } else {
-            // Still pigs alive — next bird or game over
-            const nextIdx = gs.currentBirdIdx + 1;
-            if (nextIdx >= gs.birds.length) {
-              gs.phase = "gameover";
-              setPhase("gameover");
-              updateHighScore(gs.score);
-            } else {
-              gs.currentBirdIdx = nextIdx;
-              gs.phase = "aiming";
               setPhase("aiming");
+            } else {
+              // All levels done — loop back to level 0
+              const next = buildLevel(0, w, h, s.score);
+              stateRef.current = next;
+              setLevel(0);
+              setPhase("aiming");
+            }
+            return;
+          } else {
+            // Out of birds or time — check if any pigs alive
+            const pigsAlive = s.pigs.some(p => !p.dead);
+            if (pigsAlive) {
+              // Check if we have birds left
+              const birdsLeft = s.birds.some(b => !b.launched);
+              if (birdsLeft) {
+                // Still have birds — keep aiming
+                s.phase = "aiming";
+                setPhase("aiming");
+              } else {
+                // No birds left — game over
+                s.phase = "gameover";
+                setPhase("gameover");
+                updateHighScore(s.score);
+              }
+            } else {
+              // All pigs dead (caught by settle)
+              const remaining = s.birds.filter(b => !b.launched).length;
+              s.score += remaining * 1000 + 3000;
+              updateHighScore(s.score);
+              setScore(s.score);
+
+              const nextLevel = s.level + 1;
+              if (nextLevel < LEVELS.length) {
+                const next = buildLevel(nextLevel, w, h, s.score);
+                stateRef.current = next;
+                setLevel(nextLevel);
+                setPhase("aiming");
+              } else {
+                const next = buildLevel(0, w, h, s.score);
+                stateRef.current = next;
+                setLevel(0);
+                setPhase("aiming");
+              }
+              return;
             }
           }
         }
       }
     }
 
-    // Render
-    const sp = slingshotPos();
+    // Update score display
+    if (s.score !== score) setScore(s.score);
+
+    // --- RENDER ---
+    const { sx, sy } = (() => ({
+      sx: w * SLINGSHOT_X_FRAC,
+      sy: h * SLINGSHOT_Y_FRAC,
+    }))();
+
     renderScene(
-      ctx, canvas.width, canvas.height,
-      gs.birds, gs.pigs, gs.blocks, gs.particles,
-      sp.x, sp.y,
-      dragRef.current,
-      gs.currentBirdIdx,
-      isDraggingRef.current,
+      ctx, w, h,
+      s.birds, s.pigs, s.blocks, s.particles,
+      sx, sy,
+      dragRef.current.pos,
+      s.currentBirdIdx,
+      dragRef.current.active,
       false
     );
   });
 
   const restart = useCallback(() => {
-    initLevel(0, 0);
-  }, [initLevel]);
+    const { w, h } = sizeRef.current;
+    stateRef.current = buildLevel(0, w, h, 0);
+    setScore(0);
+    setLevel(0);
+    setPhase("aiming");
+  }, []);
 
   return (
     <GameShell topbar={
       <GameTopbar
-        title="Angry"
+        title="Angry Birds"
         score={score}
         highScore={highScore}
+        level={level + 1}
       />
     }>
-      <div className="relative w-full h-full">
-        <canvas
-          ref={canvasRef}
-          className="w-full h-full block"
-          onMouseDown={onMouseDown}
-          onMouseMove={onMouseMove}
-          onMouseUp={onMouseUp}
-          onMouseLeave={onMouseUp}
-          onClick={onCanvasClick}
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
-          onTouchCancel={onTouchEnd}
-        />
-
-        {/* Level indicator — brief non-blocking display */}
-        {phase === "aiming" && (
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 pointer-events-none">
-            <span className="bg-black/40 text-white text-sm font-semibold px-3 py-1 rounded-full" style={{ fontFamily: "Manrope, sans-serif" }}>
-              Level {level + 1}
-            </span>
-          </div>
-        )}
+      <div ref={containerRef} className="relative w-full h-full overflow-hidden">
+        <canvas ref={canvasRef} className="absolute inset-0 w-full h-full touch-none" />
 
         {/* Game Over overlay */}
         {phase === "gameover" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60">
-            <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 flex flex-col items-center gap-4 shadow-2xl">
-              <p className="text-4xl">🐦</p>
-              <h2 className="text-2xl font-bold" style={{ fontFamily: "Fraunces, serif" }}>
-                {stateRef.current?.pigs.every(p => p.dead) ? "You Win! 🎉" : "Game Over"}
-              </h2>
-              <p className="text-lg" style={{ fontFamily: "Manrope, sans-serif" }}>Score: {score}</p>
-              <p className="text-sm text-gray-500" style={{ fontFamily: "Manrope, sans-serif" }}>Best: {highScore}</p>
-              <button
-                onClick={restart}
-                className="mt-2 px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl text-lg"
-                style={{ fontFamily: "Manrope, sans-serif", minHeight: 44 }}
-              >
-                Play Again
-              </button>
-            </div>
+            <p className="font-display text-4xl text-white mb-2">Game Over</p>
+            <p className="text-white/80 mb-6 font-sans">Score: {score}</p>
+            <button
+              className="px-8 py-3 bg-red-500 hover:bg-red-400 text-white rounded-2xl font-sans text-lg font-bold"
+              onClick={restart}
+            >
+              Try Again
+            </button>
           </div>
         )}
       </div>
