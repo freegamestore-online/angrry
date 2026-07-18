@@ -10,7 +10,7 @@ export const LEVELS: Level[] = [
     blocks: [
       { x: 0.695, y: 0, w: 18, h: 80, type: "wood" },
       { x: 0.745, y: 0, w: 18, h: 80, type: "wood" },
-      { x: 0.72, y: 0, w: 60, h: 18, type: "wood" },
+      { x: 0.72,  y: 0, w: 60, h: 18, type: "wood" },
     ],
   },
   // Level 2 — Two pigs, wood fortress
@@ -39,12 +39,12 @@ export const LEVELS: Level[] = [
     blocks: [
       { x: 0.64, y: 0, w: 18, h: 100, type: "stone" },
       { x: 0.72, y: 0, w: 18, h: 100, type: "stone" },
-      { x: 0.68, y: 0, w: 80, h: 18, type: "stone" },
+      { x: 0.68, y: 0, w: 80,  h: 18,  type: "stone" },
       { x: 0.76, y: 0, w: 18, h: 100, type: "stone" },
       { x: 0.84, y: 0, w: 18, h: 100, type: "stone" },
-      { x: 0.80, y: 0, w: 80, h: 18, type: "stone" },
-      { x: 0.68, y: 0, w: 50, h: 18, type: "wood", angle: 0 },
-      { x: 0.80, y: 0, w: 50, h: 18, type: "wood", angle: 0 },
+      { x: 0.80, y: 0, w: 80,  h: 18,  type: "stone" },
+      { x: 0.68, y: 0, w: 50,  h: 18,  type: "wood"  },
+      { x: 0.80, y: 0, w: 50,  h: 18,  type: "wood"  },
     ],
   },
   // Level 4 — Ice fortress + mixed pigs
@@ -62,36 +62,32 @@ export const LEVELS: Level[] = [
       { x: 0.70, y: 0, w: 16, h: 85, type: "wood" },
       { x: 0.76, y: 0, w: 16, h: 85, type: "wood" },
       { x: 0.73, y: 0, w: 65, h: 16, type: "wood" },
-      { x: 0.80, y: 0, w: 16, h: 85, type: "stone" },
-      { x: 0.86, y: 0, w: 16, h: 85, type: "stone" },
-      { x: 0.83, y: 0, w: 65, h: 16, type: "stone" },
+      { x: 0.80, y: 0, w: 16, h: 85, type: "ice" },
+      { x: 0.86, y: 0, w: 16, h: 85, type: "ice" },
+      { x: 0.83, y: 0, w: 65, h: 16, type: "ice" },
     ],
   },
-  // Level 5 — Boss level
+  // Level 5 — Big chaos
   {
-    birds: ["red", "yellow", "black", "blue", "black"],
+    birds: ["red", "yellow", "black", "blue", "red"],
     pigs: [
-      { x: 0.60, y: 0, hp: 5 },
-      { x: 0.70, y: 0, hp: 5 },
-      { x: 0.80, y: 0, hp: 5 },
-      { x: 0.70, y: 0, hp: 6 },
+      { x: 0.58, y: 0, hp: 3 },
+      { x: 0.70, y: 0, hp: 4 },
+      { x: 0.82, y: 0, hp: 3 },
     ],
     blocks: [
-      // Left tower
-      { x: 0.57, y: 0, w: 16, h: 110, type: "stone" },
-      { x: 0.63, y: 0, w: 16, h: 110, type: "stone" },
-      { x: 0.60, y: 0, w: 65, h: 16, type: "stone" },
-      { x: 0.60, y: 0, w: 40, h: 16, type: "wood" },
-      // Middle tower
-      { x: 0.67, y: 0, w: 16, h: 120, type: "stone" },
-      { x: 0.73, y: 0, w: 16, h: 120, type: "stone" },
-      { x: 0.70, y: 0, w: 65, h: 16, type: "stone" },
-      { x: 0.70, y: 0, w: 65, h: 16, type: "wood" },
-      // Right tower
-      { x: 0.77, y: 0, w: 16, h: 110, type: "stone" },
-      { x: 0.83, y: 0, w: 16, h: 110, type: "stone" },
-      { x: 0.80, y: 0, w: 65, h: 16, type: "stone" },
-      { x: 0.80, y: 0, w: 40, h: 16, type: "ice" },
+      { x: 0.55, y: 0, w: 20, h: 110, type: "stone" },
+      { x: 0.61, y: 0, w: 20, h: 110, type: "stone" },
+      { x: 0.58, y: 0, w: 80, h: 20,  type: "stone" },
+      { x: 0.67, y: 0, w: 20, h: 110, type: "wood"  },
+      { x: 0.73, y: 0, w: 20, h: 110, type: "wood"  },
+      { x: 0.70, y: 0, w: 80, h: 20,  type: "wood"  },
+      { x: 0.79, y: 0, w: 20, h: 110, type: "stone" },
+      { x: 0.85, y: 0, w: 20, h: 110, type: "stone" },
+      { x: 0.82, y: 0, w: 80, h: 20,  type: "stone" },
+      { x: 0.58, y: 0, w: 50, h: 18,  type: "ice"   },
+      { x: 0.70, y: 0, w: 50, h: 18,  type: "ice"   },
+      { x: 0.82, y: 0, w: 50, h: 18,  type: "ice"   },
     ],
   },
 ];
