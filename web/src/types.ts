@@ -68,4 +68,4 @@ export interface Level {
   blocks: Array<{ x: number; y: number; w: number; h: number; type: BlockType; angle?: number }>;
 }
 
-export type GamePhase = "aiming" | "flying" | "settling" | "levelclear" | "gameover" | "nextbird";
+export type GamePhase = "aiming" | "flying" | "settling" | "gameover" | "nextbird";
