@@ -41,9 +41,9 @@ export default defineConfig({
       // field passes through to the emitted manifest.webmanifest; browsers
       // ignore unknown members.
       manifest: {
-        name: "Angry ",
-        short_name: "Angry ",
-        description: "Angry  — free forever",
+        name: "Bird Launcher",
+        short_name: "Bird Launcher",
+        description: "Bird Launcher — free forever",
         start_url: "/",
         display: "standalone",
         background_color: "#0f0f0f",

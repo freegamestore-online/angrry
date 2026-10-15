@@ -3,7 +3,7 @@ export interface Vec2 {
   y: number;
 }
 
-export type BirdType = "red" | "blue" | "yellow" | "black";
+export type BirdType = "coral" | "teal" | "violet" | "slate";
 
 export interface Bird {
   id: number;
@@ -19,7 +19,7 @@ export interface Bird {
   activated: boolean; // special ability used
 }
 
-export interface Pig {
+export interface Target {
   id: number;
   x: number;
   y: number;
@@ -64,7 +64,7 @@ export interface Particle {
 
 export interface Level {
   birds: BirdType[];
-  pigs: Array<{ x: number; y: number; hp: number }>;
+  targets: Array<{ x: number; y: number; hp: number }>;
   blocks: Array<{ x: number; y: number; w: number; h: number; type: BlockType; angle?: number }>;
 }
 

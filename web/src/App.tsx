@@ -2,7 +2,7 @@ import { GameShell, GameTopbar } from "@freegamestore/games";
 import { useRef, useState, useCallback, useEffect } from "react";
 import { useGameLoop } from "./hooks/useGameLoop";
 import { useHighScore } from "./hooks/useHighScore";
-import type { Bird, Pig, Block, Particle, Vec2, GamePhase, BirdType } from "./types";
+import type { Bird, Target, Block, Particle, Vec2, GamePhase, BirdType } from "./types";
 import { stepPhysics, getGroundY, spawnParticles, isSettled, calcLaunchVelocity } from "./lib/physics";
 import { renderScene } from "./lib/renderer";
 import { LEVELS } from "./lib/levels";
@@ -17,14 +17,14 @@ const MAX_DRAG = 160;
 const SETTLE_TIME = 2.8;
 
 function makeBird(type: BirdType, x: number, y: number): Bird {
-  const r = type === "blue" ? 14 : type === "yellow" ? 17 : type === "black" ? 22 : 18;
+  const r = type === "teal" ? 14 : type === "violet" ? 17 : type === "slate" ? 22 : 18;
   return {
     id: nextId(), type, x, y, vx: 0, vy: 0,
     radius: r, launched: false, dead: false, trail: [], activated: false,
   };
 }
 
-function makePig(x: number, y: number, hp: number, groundY: number): Pig {
+function makeTarget(x: number, hp: number, groundY: number): Target {
   const r = 22;
   return {
     id: nextId(), x, y: groundY - r, vx: 0, vy: 0,
@@ -33,7 +33,7 @@ function makePig(x: number, y: number, hp: number, groundY: number): Pig {
 }
 
 function makeBlock(
-  x: number, y: number, w: number, h: number,
+  x: number, w: number, h: number,
   type: Block["type"], angle: number, groundY: number
 ): Block {
   const hp = type === "stone" ? 8 : type === "wood" ? 5 : 3;
@@ -46,7 +46,7 @@ function makeBlock(
 
 interface GameState {
   birds: Bird[];
-  pigs: Pig[];
+  targets: Target[];
   blocks: Block[];
   particles: Particle[];
   currentBirdIdx: number;
@@ -66,16 +66,16 @@ function buildLevel(levelIdx: number, canvasW: number, canvasH: number, score: n
     makeBird(type, sx - i * 30, sy)
   );
 
-  const pigs = lvl.pigs.map(p =>
-    makePig(p.x * canvasW, p.y, p.hp, groundY)
+  const targets = lvl.targets.map(p =>
+    makeTarget(p.x * canvasW, p.hp, groundY)
   );
 
   const blocks = lvl.blocks.map(b =>
-    makeBlock(b.x * canvasW, b.y, b.w, b.h, b.type, b.angle ?? 0, groundY)
+    makeBlock(b.x * canvasW, b.w, b.h, b.type, b.angle ?? 0, groundY)
   );
 
   return {
-    birds, pigs, blocks, particles: [],
+    birds, targets, blocks, particles: [],
     currentBirdIdx: 0,
     phase: "aiming",
     settleTimer: 0,
@@ -253,15 +253,15 @@ export default function App() {
       const bird = s.birds[s.currentBirdIdx];
       if (!bird || !bird.launched || bird.dead || bird.activated) return;
       bird.activated = true;
-      if (bird.type === "yellow") {
+      if (bird.type === "violet") {
         bird.vx *= 1.8;
         bird.vy *= 0.5;
-      } else if (bird.type === "black") {
+      } else if (bird.type === "slate") {
         // Explode
         spawnParticles(bird.x, bird.y, "#ff6600", 20, s.particles, nextId);
         spawnParticles(bird.x, bird.y, "#ffcc00", 15, s.particles, nextId);
         const blastR = 90;
-        for (const p of s.pigs) {
+        for (const p of s.targets) {
           if (p.dead) continue;
           const dx = p.x - bird.x; const dy = p.y - bird.y;
           const d = Math.sqrt(dx * dx + dy * dy);
@@ -287,11 +287,11 @@ export default function App() {
           }
         }
         bird.dead = true;
-      } else if (bird.type === "blue") {
+      } else if (bird.type === "teal") {
         // Split into 3
         const offsets = [-25, 0, 25];
         for (const off of offsets) {
-          const nb = makeBird("blue", bird.x, bird.y);
+          const nb = makeBird("teal", bird.x, bird.y);
           nb.launched = true;
           nb.vx = bird.vx * 0.9;
           nb.vy = bird.vy + off;
@@ -325,7 +325,7 @@ export default function App() {
 
     // --- UPDATE ---
     if (s.phase === "flying" || s.phase === "settling") {
-      stepPhysics(s.birds, s.pigs, s.blocks, s.particles, dt, w, h, nextId);
+      stepPhysics(s.birds, s.targets, s.blocks, s.particles, dt, w, h, nextId);
 
       // Check if flying bird has died → next bird or settle
       if (s.phase === "flying") {
@@ -347,10 +347,10 @@ export default function App() {
 
       if (s.phase === "settling") {
         s.settleTimer += dt;
-        const allPigsDead = s.pigs.every(p => p.dead);
+        const allTargetsDead = s.targets.every(p => p.dead);
 
-        if (allPigsDead || s.settleTimer > SETTLE_TIME || isSettled(s.birds, s.pigs, s.blocks)) {
-          if (allPigsDead) {
+        if (allTargetsDead || s.settleTimer > SETTLE_TIME || isSettled(s.birds, s.targets, s.blocks)) {
+          if (allTargetsDead) {
             // Bonus for remaining birds
             const remaining = s.birds.filter(b => !b.launched).length;
             s.score += remaining * 1000 + 3000;
@@ -373,9 +373,9 @@ export default function App() {
             }
             return;
           } else {
-            // Out of birds or time — check if any pigs alive
-            const pigsAlive = s.pigs.some(p => !p.dead);
-            if (pigsAlive) {
+            // Out of birds or time — check if any targets alive
+            const targetsAlive = s.targets.some(p => !p.dead);
+            if (targetsAlive) {
               // Check if we have birds left
               const birdsLeft = s.birds.some(b => !b.launched);
               if (birdsLeft) {
@@ -389,7 +389,7 @@ export default function App() {
                 updateHighScore(s.score);
               }
             } else {
-              // All pigs dead (caught by settle)
+              // All targets dead (caught by settle)
               const remaining = s.birds.filter(b => !b.launched).length;
               s.score += remaining * 1000 + 3000;
               updateHighScore(s.score);
@@ -425,7 +425,7 @@ export default function App() {
 
     renderScene(
       ctx, w, h,
-      s.birds, s.pigs, s.blocks, s.particles,
+      s.birds, s.targets, s.blocks, s.particles,
       sx, sy,
       dragRef.current.pos,
       s.currentBirdIdx,
@@ -445,7 +445,7 @@ export default function App() {
   return (
     <GameShell topbar={
       <GameTopbar
-        title="Angry Birds"
+        title="Bird Launcher"
         score={score}
         highScore={highScore}
         level={level + 1}

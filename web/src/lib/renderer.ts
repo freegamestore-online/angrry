@@ -1,4 +1,4 @@
-import type { Bird, Pig, Block, Particle, Vec2 } from "../types";
+import type { Bird, Target, Block, Particle, Vec2 } from "../types";
 import { getGroundY } from "./physics";
 
 const SKY_TOP = "#87CEEB";
@@ -11,7 +11,7 @@ export function renderScene(
   w: number,
   h: number,
   birds: Bird[],
-  pigs: Pig[],
+  targets: Target[],
   blocks: Block[],
   particles: Particle[],
   slingshotX: number,
@@ -25,7 +25,7 @@ export function renderScene(
   drawBackground(ctx, w, h);
   drawSlingshot(ctx, slingshotX, slingshotY, w, h, birds, currentBirdIdx, dragPos, isDragging);
   drawBlocks(ctx, blocks);
-  drawPigs(ctx, pigs);
+  drawTargets(ctx, targets);
   drawBirds(ctx, birds);
   drawParticles(ctx, particles);
   drawBirdQueue(ctx, birds, currentBirdIdx, h);
@@ -175,11 +175,11 @@ function drawSlingshot(
 
 function birdColor(type: string): string {
   switch (type) {
-    case "red":    return "#e63030";
-    case "blue":   return "#3090e6";
-    case "yellow": return "#f0c020";
-    case "black":  return "#333333";
-    default:       return "#e63030";
+    case "coral":  return "#ff7a5c";
+    case "teal":   return "#2a9d8f";
+    case "violet": return "#8e6cc8";
+    case "slate":  return "#4a5568";
+    default:       return "#ff7a5c";
   }
 }
 
@@ -224,7 +224,7 @@ function drawBirdAt(
   ctx.fill();
 
   // Beak
-  ctx.fillStyle = "#f5a623";
+  ctx.fillStyle = "#ffb703";
   ctx.beginPath();
   ctx.moveTo(r * 0.55, -r * 0.05);
   ctx.lineTo(r * 0.95, r * 0.05);
@@ -232,47 +232,7 @@ function drawBirdAt(
   ctx.closePath();
   ctx.fill();
 
-  // Eyebrow (angry)
-  ctx.strokeStyle = "#111";
-  ctx.lineWidth = Math.max(1.5, r * 0.1);
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(r * 0.1, -r * 0.42);
-  ctx.lineTo(r * 0.55, -r * 0.32);
-  ctx.stroke();
-
-  // Type-specific features
-  if (type === "yellow") {
-    // Pointy head
-    ctx.fillStyle = "#f0c020";
-    ctx.beginPath();
-    ctx.moveTo(-r * 0.1, -r);
-    ctx.lineTo(r * 0.4, -r * 0.5);
-    ctx.lineTo(-r * 0.5, -r * 0.5);
-    ctx.closePath();
-    ctx.fill();
-  } else if (type === "black") {
-    // Fuse on top
-    ctx.strokeStyle = "#888";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(0, -r);
-    ctx.bezierCurveTo(r * 0.3, -r * 1.4, -r * 0.3, -r * 1.6, r * 0.1, -r * 1.8);
-    ctx.stroke();
-    ctx.fillStyle = "#ff8800";
-    ctx.beginPath();
-    ctx.arc(r * 0.1, -r * 1.85, 4, 0, Math.PI * 2);
-    ctx.fill();
-  } else if (type === "blue") {
-    // Topknot
-    ctx.fillStyle = "#3090e6";
-    ctx.beginPath();
-    ctx.moveTo(-r * 0.15, -r);
-    ctx.lineTo(r * 0.05, -r * 1.4);
-    ctx.lineTo(r * 0.25, -r);
-    ctx.closePath();
-    ctx.fill();
-  }
+  // Plain round bird: no brows, crests or fuses. Type only changes colour and size.
 
   ctx.restore();
 }
@@ -304,8 +264,8 @@ function drawBirds(ctx: CanvasRenderingContext2D, birds: Bird[]): void {
   }
 }
 
-function drawPigs(ctx: CanvasRenderingContext2D, pigs: Pig[]): void {
-  for (const p of pigs) {
+function drawTargets(ctx: CanvasRenderingContext2D, targets: Target[]): void {
+  for (const p of targets) {
     if (p.dead) continue;
     ctx.save();
     ctx.translate(p.x, p.y);
@@ -317,41 +277,19 @@ function drawPigs(ctx: CanvasRenderingContext2D, pigs: Pig[]): void {
     ctx.ellipse(0, p.radius * 0.9, p.radius * 0.85, p.radius * 0.3, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Health tint
+    // Bullseye rings: gold while intact, grey once heavily damaged
     const hpFrac = p.hp / p.maxHp;
-    const g = Math.floor(120 + hpFrac * 80);
-    ctx.fillStyle = `rgb(30,${g},30)`;
+    ctx.fillStyle = hpFrac > 0.7 ? "#e9c46a" : "#9aa5ab";
     ctx.beginPath();
     ctx.arc(0, 0, p.radius, 0, Math.PI * 2);
     ctx.fill();
-
-    // Highlight
-    ctx.fillStyle = "rgba(255,255,255,0.2)";
+    ctx.fillStyle = "#f8f9fa";
     ctx.beginPath();
-    ctx.arc(-p.radius * 0.25, -p.radius * 0.25, p.radius * 0.4, 0, Math.PI * 2);
+    ctx.arc(0, 0, p.radius * 0.6, 0, Math.PI * 2);
     ctx.fill();
-
-    // Eyes
-    ctx.fillStyle = "white";
+    ctx.fillStyle = "#264653";
     ctx.beginPath();
-    ctx.arc(-p.radius * 0.28, -p.radius * 0.1, p.radius * 0.3, 0, Math.PI * 2);
-    ctx.arc(p.radius * 0.28, -p.radius * 0.1, p.radius * 0.3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#111";
-    ctx.beginPath();
-    ctx.arc(-p.radius * 0.22, -p.radius * 0.08, p.radius * 0.14, 0, Math.PI * 2);
-    ctx.arc(p.radius * 0.22, -p.radius * 0.08, p.radius * 0.14, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Snout
-    ctx.fillStyle = "#3aaa3a";
-    ctx.beginPath();
-    ctx.ellipse(0, p.radius * 0.25, p.radius * 0.35, p.radius * 0.22, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#111";
-    ctx.beginPath();
-    ctx.arc(-p.radius * 0.12, p.radius * 0.25, p.radius * 0.07, 0, Math.PI * 2);
-    ctx.arc(p.radius * 0.12, p.radius * 0.25, p.radius * 0.07, 0, Math.PI * 2);
+    ctx.arc(0, 0, p.radius * 0.25, 0, Math.PI * 2);
     ctx.fill();
 
     // Damage cracks

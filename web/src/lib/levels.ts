@@ -3,8 +3,8 @@ import type { Level } from "../types";
 export const LEVELS: Level[] = [
   // Level 1 — Tutorial: simple tower
   {
-    birds: ["red", "red", "red"],
-    pigs: [
+    birds: ["coral", "coral", "coral"],
+    targets: [
       { x: 0.72, y: 0, hp: 3 },
     ],
     blocks: [
@@ -13,10 +13,10 @@ export const LEVELS: Level[] = [
       { x: 0.72,  y: 0, w: 60, h: 18, type: "wood" },
     ],
   },
-  // Level 2 — Two pigs, wood fortress
+  // Level 2 — Two targets, wood fortress
   {
-    birds: ["red", "blue", "red"],
-    pigs: [
+    birds: ["coral", "teal", "coral"],
+    targets: [
       { x: 0.65, y: 0, hp: 3 },
       { x: 0.78, y: 0, hp: 3 },
     ],
@@ -31,8 +31,8 @@ export const LEVELS: Level[] = [
   },
   // Level 3 — Stone fortress
   {
-    birds: ["red", "yellow", "black", "red"],
-    pigs: [
+    birds: ["coral", "violet", "slate", "coral"],
+    targets: [
       { x: 0.68, y: 0, hp: 4 },
       { x: 0.80, y: 0, hp: 4 },
     ],
@@ -47,10 +47,10 @@ export const LEVELS: Level[] = [
       { x: 0.80, y: 0, w: 50,  h: 18,  type: "wood"  },
     ],
   },
-  // Level 4 — Ice fortress + mixed pigs
+  // Level 4 — Ice fortress + mixed targets
   {
-    birds: ["blue", "blue", "yellow", "black"],
-    pigs: [
+    birds: ["teal", "teal", "violet", "slate"],
+    targets: [
       { x: 0.63, y: 0, hp: 2 },
       { x: 0.73, y: 0, hp: 3 },
       { x: 0.83, y: 0, hp: 2 },
@@ -69,8 +69,8 @@ export const LEVELS: Level[] = [
   },
   // Level 5 — Big chaos
   {
-    birds: ["red", "yellow", "black", "blue", "red"],
-    pigs: [
+    birds: ["coral", "violet", "slate", "teal", "coral"],
+    targets: [
       { x: 0.58, y: 0, hp: 3 },
       { x: 0.70, y: 0, hp: 4 },
       { x: 0.82, y: 0, hp: 3 },

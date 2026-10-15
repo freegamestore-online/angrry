@@ -1,11 +1,11 @@
-import type { Bird, Pig, Block, Particle, Vec2 } from "../types";
+import type { Bird, Target, Block, Particle, Vec2 } from "../types";
 
 const GRAVITY = 600;
 const GROUND_Y_FRAC = 0.82;
 const BIRD_BOUNCE_DAMPING = 0.45;
 const BIRD_FRICTION = 0.80;
-const PIG_BOUNCE_DAMPING = 0.4;
-const PIG_FRICTION = 0.78;
+const TARGET_BOUNCE_DAMPING = 0.4;
+const TARGET_FRICTION = 0.78;
 const BLOCK_BOUNCE_DAMPING = 0.35;
 const BLOCK_FRICTION = 0.75;
 
@@ -46,11 +46,11 @@ export function spawnParticles(
   }
 }
 
-export function isSettled(birds: Bird[], pigs: Pig[], blocks: Block[]): boolean {
+export function isSettled(birds: Bird[], targets: Target[], blocks: Block[]): boolean {
   const activeBird = birds.find(b => b.launched && !b.dead);
   if (activeBird) return false;
-  const movingPig = pigs.find(p => !p.dead && (Math.abs(p.vx) > 4 || Math.abs(p.vy) > 4));
-  if (movingPig) return false;
+  const movingTarget = targets.find(p => !p.dead && (Math.abs(p.vx) > 4 || Math.abs(p.vy) > 4));
+  if (movingTarget) return false;
   const movingBlock = blocks.find(b => !b.dead && (Math.abs(b.vx) > 4 || Math.abs(b.vy) > 4));
   if (movingBlock) return false;
   return true;
@@ -93,7 +93,7 @@ function circleRect(
 
 export function stepPhysics(
   birds: Bird[],
-  pigs: Pig[],
+  targets: Target[],
   blocks: Block[],
   particles: Particle[],
   dt: number,
@@ -128,8 +128,8 @@ export function stepPhysics(
     if (b.trail.length > 22) b.trail.shift();
   }
 
-  // --- Update pigs ---
-  for (const p of pigs) {
+  // --- Update targets ---
+  for (const p of targets) {
     if (p.dead) continue;
     p.vy += GRAVITY * dt;
     p.x += p.vx * dt;
@@ -138,12 +138,12 @@ export function stepPhysics(
 
     if (p.y + p.radius >= groundY) {
       p.y = groundY - p.radius;
-      p.vy *= -PIG_BOUNCE_DAMPING;
-      p.vx *= PIG_FRICTION;
+      p.vy *= -TARGET_BOUNCE_DAMPING;
+      p.vx *= TARGET_FRICTION;
       if (Math.abs(p.vy) < 8) { p.vy = 0; p.vx *= 0.88; }
     }
-    if (p.x < p.radius) { p.x = p.radius; p.vx = Math.abs(p.vx) * PIG_BOUNCE_DAMPING; }
-    if (p.x > canvasW - p.radius) { p.x = canvasW - p.radius; p.vx = -Math.abs(p.vx) * PIG_BOUNCE_DAMPING; }
+    if (p.x < p.radius) { p.x = p.radius; p.vx = Math.abs(p.vx) * TARGET_BOUNCE_DAMPING; }
+    if (p.x > canvasW - p.radius) { p.x = canvasW - p.radius; p.vx = -Math.abs(p.vx) * TARGET_BOUNCE_DAMPING; }
   }
 
   // --- Update blocks ---
@@ -177,10 +177,10 @@ export function stepPhysics(
     if ((particles[i]?.life ?? 0) <= 0) particles.splice(i, 1);
   }
 
-  // --- Bird vs Pig collisions ---
+  // --- Bird vs Target collisions ---
   for (const b of birds) {
     if (!b.launched || b.dead) continue;
-    for (const p of pigs) {
+    for (const p of targets) {
       if (p.dead) continue;
       const col = circleCircle(b.x, b.y, b.radius, p.x, p.y, p.radius);
       if (!col) continue;
@@ -189,13 +189,13 @@ export function stepPhysics(
       p.hp -= Math.max(1, impact);
       if (p.hp <= 0) {
         p.dead = true;
-        spawnParticles(p.x, p.y, "#4ade80", 12, particles, nextId);
-        spawnParticles(p.x, p.y, "#22c55e", 8, particles, nextId);
+        spawnParticles(p.x, p.y, "#e9c46a", 12, particles, nextId);
+        spawnParticles(p.x, p.y, "#f8f9fa", 8, particles, nextId);
       } else {
         spawnParticles(p.x, p.y, "#fbbf24", 5, particles, nextId);
       }
 
-      // Push pig
+      // Push target
       const speed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
       p.vx += col.nx * speed * 0.7;
       p.vy += col.ny * speed * 0.7 - 80;
@@ -238,10 +238,10 @@ export function stepPhysics(
     }
   }
 
-  // --- Block vs Pig collisions ---
+  // --- Block vs Target collisions ---
   for (const bl of blocks) {
     if (bl.dead) continue;
-    for (const p of pigs) {
+    for (const p of targets) {
       if (p.dead) continue;
       const col = circleRect(p.x, p.y, p.radius, bl.x, bl.y, bl.w, bl.h);
       if (!col) continue;
@@ -251,7 +251,7 @@ export function stepPhysics(
         p.hp -= impact;
         if (p.hp <= 0) {
           p.dead = true;
-          spawnParticles(p.x, p.y, "#4ade80", 10, particles, nextId);
+          spawnParticles(p.x, p.y, "#e9c46a", 10, particles, nextId);
         }
       }
 
