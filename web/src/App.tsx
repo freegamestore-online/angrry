@@ -447,8 +447,10 @@ export default function App() {
       <GameTopbar
         title="Bird Launcher"
         score={score}
-        highScore={highScore}
-        level={level + 1}
+        stats={[
+          { label: "Best", value: highScore },
+          { label: "Level", value: level + 1 },
+        ]}
       />
     }>
       <div ref={containerRef} className="relative w-full h-full overflow-hidden">
